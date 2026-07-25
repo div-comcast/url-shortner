@@ -10,7 +10,7 @@ from app.repositories.url_repository import UrlRepository
 BASE62 = string.digits + string.ascii_letters  # 0-9 a-z A-Z
 COUNTER_START = 62 ** 4   # 14,776,336 — first encoded value is exactly 5 chars
 COUNTER_KEY   = "global:url_counter"
-REDIS_TTL = 60 * 60 * 24  * 1   # 1 day
+REDIS_TTL = 60 * 60 * 24  * 7   # 7 day
 
 
 class UrlShortener:
