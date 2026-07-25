@@ -2,8 +2,10 @@ import datetime
 import pytz
 
 from fastapi import Request
+from sqlalchemy.orm import Session
 
 from app.modules.schema import AnalyticsResponse
+from app.repositories.url_repository import UrlRepository
 
 import user_agents
 
@@ -63,5 +65,7 @@ class UrlAnalytics:
         return raw
 
 
-def run_url_analytics(code: str, request: Request) -> AnalyticsResponse:
-    return UrlAnalytics().parse_click_data(code, request)
+def run_url_analytics(code: str, request: Request, db: Session) -> AnalyticsResponse:
+    click = UrlAnalytics().parse_click_data(code, request)
+    UrlRepository(db).save_analytics(click)
+    return click
