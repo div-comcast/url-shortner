@@ -10,7 +10,7 @@ from app.repositories.url_repository import UrlRepository
 BASE62 = string.digits + string.ascii_letters  # 0-9 a-z A-Z
 COUNTER_START = 62 ** 4   # 14,776,336 — first encoded value is exactly 5 chars
 COUNTER_KEY   = "global:url_counter"
-REDIS_TTL = 60 * 60 * 24  * 7   # 7 day
+REDIS_TTL = 60 * 60 * 24  * 30   # 30 day
 
 
 class UrlShortener:
@@ -22,6 +22,8 @@ class UrlShortener:
         # check Redis cache — fastest path, no DB touch
         existing_code = redis_client.get(f"url:{url}")
         if existing_code:
+            redis_client.expire(f"url:{url}", REDIS_TTL)
+            redis_client.expire(f"code:{existing_code}", REDIS_TTL)
             return ShortenResponse(code=existing_code, short_url=f"{base_url}/{existing_code}")
 
         # cache miss — check PostgreSQL
@@ -55,6 +57,8 @@ class UrlShortener:
         # check Redis cache
         existing = redis_client.get(f"code:{code}")
         if existing:
+            redis_client.expire(f"code:{code}", REDIS_TTL)
+            redis_client.expire(f"url:{existing}", REDIS_TTL)
             return existing
 
         # cache miss — check PostgreSQL
