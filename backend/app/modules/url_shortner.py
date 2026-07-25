@@ -1,3 +1,4 @@
+import secrets
 import string
 
 from sqlalchemy.exc import IntegrityError
@@ -7,10 +8,9 @@ from app.clients.redis import redis_client
 from app.modules.schema import ShortenResponse
 from app.repositories.url_repository import UrlRepository
 
-BASE62 = string.digits + string.ascii_letters  # 0-9 a-z A-Z
-COUNTER_START = 62 ** 4   # 14,776,336 — first encoded value is exactly 5 chars
-COUNTER_KEY   = "global:url_counter"
-REDIS_TTL = 60 * 60 * 24  * 30   # 30 day
+BASE62 = string.digits + string.ascii_letters  
+CODE_LEN = 7
+REDIS_TTL = 60 * 60 * 24 * 30   # 30 days
 
 
 class UrlShortener:
@@ -33,13 +33,9 @@ class UrlShortener:
             redis_client.set(f"code:{row.code}", row.long_url, ex=REDIS_TTL)
             return ShortenResponse(code=row.code, short_url=row.short_url)
 
-        # brand new URL — generate a unique code, retry if counter was reset and code already exists in DB
+        # brand new URL — random code, retry on the rare collision
         while True:
-            counter = redis_client.incr(COUNTER_KEY)
-            if counter < COUNTER_START:
-                redis_client.set(COUNTER_KEY, COUNTER_START)
-                counter = COUNTER_START
-            code = self._encode(counter)
+            code = self._random_code()
             short_url = f"{base_url}/{code}"
             try:
                 self.repo.save(code, url, short_url)
@@ -47,7 +43,6 @@ class UrlShortener:
             except IntegrityError:
                 continue
 
-        # cache in Redis with TTL so next hit never touches DB
         redis_client.set(f"url:{url}", code, ex=REDIS_TTL)
         redis_client.set(f"code:{code}", url, ex=REDIS_TTL)
 
@@ -70,12 +65,8 @@ class UrlShortener:
 
         return None
 
-    def _encode(self, n: int) -> str:
-        code = []
-        while n:
-            code.append(BASE62[n % 62])
-            n //= 62
-        return "".join(reversed(code))
+    def _random_code(self) -> str:
+        return "".join(secrets.choice(BASE62) for _ in range(CODE_LEN))
 
 
 def run_url_shortener(url: str, base_url: str, session: Session) -> ShortenResponse:
