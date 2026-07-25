@@ -1,7 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.repositories.models import Url
+from app.repositories.models import Analytics, Url
 
 
 class UrlRepository:
@@ -24,3 +24,19 @@ class UrlRepository:
             self.session.rollback()
             raise
         return row
+
+    def save_analytics(self, click) -> None:
+        """Persist one click event. `click` is a ClickDataResponse."""
+        row = Analytics(
+            code=click.code,
+            clicked_at=click.clicked_at,
+            ip=click.ip,
+            country=click.country,
+            city=click.city,
+            device=click.device,
+            browser=click.browser,
+            os=click.os,
+            referrer=click.referrer,
+        )
+        self.session.add(row)
+        self.session.commit()
