@@ -4,7 +4,7 @@ import pytz
 from fastapi import Request
 from sqlalchemy.orm import Session
 
-from app.modules.schema import AnalyticsResponse
+from app.modules.schema import AnalyticsResponse, UrlStatsResponse, DashboardResponse, ClicksByDayItem, TopUrlItem
 from app.repositories.url_repository import UrlRepository
 
 import user_agents
@@ -64,6 +64,39 @@ class UrlAnalytics:
             return "YouTube"
         return raw
 
+
+class UrlAnalyticsDashboard:
+
+    def get_url_stats(self, code: str, db: Session) -> UrlStatsResponse:
+        repo = UrlRepository(db)
+        return UrlStatsResponse(
+            code=code,
+            total_clicks=repo.get_total_clicks(code),
+            unique_clicks=repo.get_unique_clicks(code),
+            clicks_by_day=[ClicksByDayItem(**r) for r in repo.get_clicks_by_day(code)],
+            by_device=repo.get_breakdown(code, "device"),
+            by_browser=repo.get_breakdown(code, "browser"),
+            by_os=repo.get_breakdown(code, "os"),
+            by_referrer=repo.get_breakdown(code, "referrer"),
+            by_country=repo.get_breakdown(code, "country"),
+        )
+
+    def get_dashboard(self, db: Session) -> DashboardResponse:
+        repo = UrlRepository(db)
+        return DashboardResponse(
+            total_urls=repo.get_total_urls(),
+            total_clicks=repo.get_total_clicks_all(),
+            clicks_today=repo.get_clicks_today(),
+            top_urls=[TopUrlItem(**r) for r in repo.get_top_urls()],
+        )
+
+
+def run_get_url_stats(code: str, db: Session) -> UrlStatsResponse:
+    return UrlAnalyticsDashboard().get_url_stats(code, db)
+
+
+def run_get_dashboard(db: Session) -> DashboardResponse:
+    return UrlAnalyticsDashboard().get_dashboard(db)
 
 def run_url_analytics(code: str, request: Request, db: Session) -> AnalyticsResponse:
     click = UrlAnalytics().parse_click_data(code, request)
